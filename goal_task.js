@@ -567,7 +567,8 @@ async function runBlock(megablock, block) {
 
   let outcome;
   while (true) {
-    await playTrial(zone, block.trials[zone.trial]);
+    // trial 2 keeps the screen positions of trial 1, seen during goal setting (values: those of trial 2)
+    await playTrial(zone, block.trials[zone.trial], block.trials[zone.trial === 1 ? 0 : zone.trial]);
 
     if (zone.goal !== null && zone.net >= zone.goal) { outcome = 'goal_reached'; break; }
     if (remainingTrials() <= 0) { outcome = 'no_trials_remaining'; break; }
@@ -693,13 +694,14 @@ function drawScene(zone) {
 // TRIAL
 // ======================================================================================
 
-async function playTrial(zone, row) {
+/** One trial: values from `row`, screen positions from `positionRow` (the scheduled ones unless given). */
+async function playTrial(zone, row, positionRow = row) {
   zone.trial++;
 
-  // Choice screen: the three creatures at their scheduled positions, each with its value bar.
+  // Choice screen: the three creatures at their positions, each with its value bar.
   drawScene(zone);
   const creatures = CONFIG.options.map((name) => {
-    const pos = [row[`${name}_choice_width`], row[`${name}_choice_height`]];
+    const pos = [positionRow[`${name}_choice_width`], positionRow[`${name}_choice_height`]];
     return { name, pos, value: row[`${name}_val`], icon: drawCreature(name, pos, row[`${name}_val`]) };
   });
 
