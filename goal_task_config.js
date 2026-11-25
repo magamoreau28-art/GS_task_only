@@ -21,6 +21,37 @@ export const CONFIG = {
   practiceDays: ['practice/practice_day1.csv', 'practice/practice_day2.csv', 'practice/practice_day3.csv'],
   practiceEnvironment: { name: 'Practice spot', background: 'open_sea.png' },
 
+  // Comprehension quiz after the practice: all answers must be correct, otherwise the quiz starts again (at most
+  // quizMaxAttempts attempts; then the task goes on, and the data show it). Illustrations: images/quiz/quiz_<n>.jpg
+  // (tools/slides/make_instruction_pptx.py --quiz). correct: index of the right answer (0 = A).
+  quizMaxAttempts: 3,
+  quiz: [
+    {
+      id: 'switch', image: 'images/quiz/quiz_1.jpg',
+      question: 'Your net contains octopus.\nWhat happens if you now catch a fish?',
+      answers: ['The fish is added to the octopus already in my net.',
+        'My net is emptied first: then only the fish is in my net.',
+        'Nothing happens: I cannot catch a fish on this day.'],
+      correct: 1,
+    },
+    {
+      id: 'leave', image: 'images/quiz/quiz_2.jpg',
+      question: 'What happens if you click "Leave"?',
+      answers: ['I sell what is in my net, even if my goal is not reached.',
+        'I keep my net and I can set a new goal.',
+        'My net is lost, I give up my goal, and a new day begins.'],
+      correct: 2,
+    },
+    {
+      id: 'spots', image: 'images/quiz/quiz_3.jpg',
+      question: 'You will fish at several fishing spots.\nWhich statement is true?',
+      answers: ['Each spot has its own conditions: during the day, the amounts of creatures can change differently from one spot to another.',
+        'All spots are the same: the amounts of creatures change in the same way everywhere.',
+        'The amounts of creatures never change during a day.'],
+      correct: 0,
+    },
+  ],
+
   // Goal (in net points; the gauge spans goalMin..goalMax, same scale in every block)
   goalMin: 500,
   goalMax: 2000,
@@ -38,8 +69,11 @@ export const CONFIG = {
   newEnvironmentDuration: 3,
   catchDuration: 2,
   fishAgainDelay: 0.5,       // the "Fish again!" button appears after this delay
-  outcomeMinDuration: 1.5,   // end-of-day screen: the button appears after this delay
-  merchantDuration: 1.5,     // goal reached: the merchant boat arrives in this time, and leaves in this time (while the outcome is shown)
+  outcomeMinDuration: 1.5,   // end-of-day screen without a sale: the button appears after this delay
+  // goal reached: the merchant boat arrives in merchantDuration, stays merchantStay (sale shown), leaves in
+  // merchantDuration; the button appears after it (3 s in all)
+  merchantDuration: 1,
+  merchantStay: 1,
 
   // Option names as in the schedule files (columns <name>_val, <name>_choice_width, <name>_choice_height)
   options: ['octopus', 'fish', 'stingray'],

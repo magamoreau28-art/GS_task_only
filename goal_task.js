@@ -1,7 +1,8 @@
 /*
  * Goal-setting fishing task (PsychoJS). Parameters: goal_task_config.js. Schedule: schedules_fmri/ (Simulation/schedule.py).
  *
- *   Session  : welcome -> instruction slides -> practice (3 days) -> "Your fishing trip begins!" -> main task -> end
+ *   Session  : welcome -> instruction slides -> practice (3 days) -> comprehension quiz -> "Your fishing trip begins!"
+ *              -> main task -> end
  *   Main task: 9 fishing spots (megablocks, one background each); a spot ends after the day during which the session
  *              reaches its `ends_at_trial` (megablocks.csv). When the fuel (session trials) runs out, the game stops
  *              and the net is lost.
@@ -10,8 +11,9 @@
  *   Trial    : choice screen -> catch (the net grows; it is emptied first if the creature changed) -> "Fish again!".
  *
  * URL options (testing):  ?participant=XYZ  skips the participant dialog;  ?auto=1  plays automatically;
- *   ?fast=1  shortens all durations;  ?speed=2  twice as fast;  ?megablock=N  skips the instructions and the practice
- *   and starts at spot N;  ?envorder=3,1,2,...  imposes the order of the backgrounds.
+ *   ?fast=1  shortens all durations;  ?speed=2  twice as fast;  ?megablock=N  skips the instructions, the practice
+ *   and the quiz and starts at spot N;  ?quiz=1  skips the instructions and the practice (starts at the quiz);
+ *   ?envorder=3,1,2,...  imposes the order of the backgrounds.
  *
  * Each screen is an async function that the session `await`s, so the order of the functions is the order of the task.
  */
@@ -95,7 +97,7 @@ const backgroundFile = (environment) => `${CONFIG.environmentFolder}/${environme
 const slidePath = (k) => `images/instructions/instructions_${String(k).padStart(2, '0')}.jpg`;
 const INSTRUCTION_SLIDES = Array.from({ length: CONFIG.instructionSlides - 1 }, (_, k) => slidePath(k));
 const START_SLIDE = slidePath(CONFIG.instructionSlides - 1);   // "Your fishing trip begins!"
-const IMAGE_FILES = [...new Set([...INSTRUCTION_SLIDES, START_SLIDE, ...Object.values(IMAGES),
+const IMAGE_FILES = [...new Set([...INSTRUCTION_SLIDES, START_SLIDE, ...Object.values(IMAGES), ...CONFIG.quiz.map((q) => q.image),
   ...[...CONFIG.environments, CONFIG.practiceEnvironment].map(backgroundFile)])];
 psychoJS.start({ expName, expInfo, resources: IMAGE_FILES.map((path) => ({ name: path, path })) });
 
@@ -384,10 +386,12 @@ async function runSession() {
   clearScreen();
 
   await welcomeScreen();
-  if (!URL_PARAMS.has('megablock')) {   // testing: ?megablock=N skips the instructions and the practice
-    for (const slide of INSTRUCTION_SLIDES) await slideScreen(slide);
-    await runPractice(practiceDays);
-    // (later) comprehension quiz
+  if (!URL_PARAMS.has('megablock')) {   // testing: ?megablock=N skips the instructions, the practice and the quiz
+    if (!URL_PARAMS.has('quiz')) {      // testing: ?quiz=1 starts at the quiz
+      for (const slide of INSTRUCTION_SLIDES) await slideScreen(slide);
+      await runPractice(practiceDays);
+    }
+    await runQuiz();
     await slideScreen(START_SLIDE);
   }
 
@@ -433,6 +437,69 @@ async function runPractice(days) {
   Object.assign(state, saved);
   logEvent('practice_end', {});
   await messageScreen('End of the practice.\n\nThe coins of the practice do not count:\nyour trip starts with 0 coins and a full tank.');
+}
+
+// ======================================================================================
+// COMPREHENSION QUIZ (after the practice), built like the quiz of the previous task: each question shows an
+// illustration (top right), the question (left) and three answers (A, B, C); a Next button appears once an answer is
+// chosen. If any answer is wrong, the quiz starts again (at most CONFIG.quizMaxAttempts attempts).
+// ======================================================================================
+
+async function runQuiz() {
+  await messageScreen('Before starting your fishing trip,\nplease answer a few questions about the game.', 'Start');
+  for (let attempt = 1; attempt <= CONFIG.quizMaxAttempts; attempt++) {
+    let allCorrect = true;
+    for (const question of CONFIG.quiz) allCorrect = (await quizQuestion(question, attempt)) && allCorrect;
+    logEvent('quiz_result', { attempt, passed: allCorrect });
+    if (allCorrect) {
+      await messageScreen('Well done, all your answers are correct!');
+      return;
+    }
+    if (attempt < CONFIG.quizMaxAttempts) {
+      await messageScreen('Sorry, you did not answer all the questions correctly.\nPlease read them carefully and try again.');
+    }
+  }
+}
+
+/** One quiz question; returns true if the answer is correct. */
+async function quizQuestion(question, attempt) {
+  clearScreen();
+  drawBackgroundImage(IMAGES.plainSea);
+  show(new visual.Rect({   // white frame around the illustration
+    win: psychoJS.window, units: 'norm', pos: [0.45, 0.45], width: 1.02, height: 1.02,
+    fillColor: WHITE, lineColor: WHITE, lineWidth: 0,
+  }), makeImage(question.image, [0.45, 0.45], [1, 1]),
+  makeText(question.question, [-0.56, 0.45], 0.065, 0.8));
+  const boxes = question.answers.map((answer, k) => {
+    const pos = [0, -0.27 - 0.22 * k];
+    const box = new visual.Rect({
+      win: psychoJS.window, units: 'norm', pos, width: 1.8, height: 0.18,
+      fillColor: new util.Color('black'), lineColor: WHITE, lineWidth: 2, opacity: 0.4,
+    });
+    show(box, makeText(`${'ABC'[k]}. ${answer}`, pos, 0.055, 1.7));
+    return box;
+  });
+  const start = now();
+  let chosen = null;
+  let next = null;
+  while (true) {
+    const targets = next ? [...boxes, next.rect] : boxes;
+    const { index } = await waitForClick(targets, () => (chosen === null ? question.correct : boxes.length));
+    if (index === boxes.length) break;   // Next
+    chosen = index;
+    boxes.forEach((box, k) => {          // the chosen answer is outlined in green
+      box.lineColor = k === chosen ? GAIN_COLOUR : WHITE;
+      box.lineWidth = k === chosen ? 5 : 2;
+    });
+    if (!next) {
+      next = makeWhiteButton('Next', [0.82, -0.94], 0.22, 0.08);
+      showButton(next);
+    }
+  }
+  const correct = chosen === question.correct;
+  logEvent('quiz', { attempt, question: question.id, answer: 'ABC'[chosen], correct, rt: Number((now() - start).toFixed(3)) });
+  clearScreen();
+  return correct;
 }
 
 async function runMainTask(schedule) {
@@ -796,7 +863,7 @@ const MERCHANT = { size: [650 / 1024, 325 / 576], y: -0.6 + (262.5 - 162.5) / 57
 /**
  * End of the day: same scene as during the fishing (background, net gauge with the goal) and, in the middle, a panel:
  * outcome, what was sold (money bag + coins gained), total. When the goal is reached, a merchant boat comes to buy
- * the catch (the net empties) and sails away while the outcome is shown.
+ * the catch (the net empties), stays a moment and sails away.
  */
 async function endOfBlockScreen(zone, outcome) {
   const sold = outcome === 'goal_reached';
@@ -818,28 +885,28 @@ async function endOfBlockScreen(zone, outcome) {
   clearScreen();
   drawBackground(false);
   const gauge = drawNetGauge(zone);
-  let ship = null;
+  show(makePanel([0, 0.15], 0.8, 0.85, 0.35), makeText(title, [0, 0.45], 0.1, 1.6, new util.Color(colour)));
+  const bag = makeImage(IMAGES.bag, [-0.09, 0.1], [0.1, 0.18]);
+  const result = [makeText(sold ? 'Catch sold' : 'Nothing to sell', [0, 0.28], 0.065), bag,
+    makeText(`+ ${coins}`, [0.06, 0.1], 0.1, 1.6, sold ? GAIN_COLOUR : new util.Color([0.4, 0.4, 0.4])),
+    makeText(`Total: ${state.coins} coins`, [0, -0.1], 0.065)];
   if (sold) {
-    // the merchant boat comes alongside the fishing boat and takes the catch (the net empties)
-    ship = makeImage(IMAGES.merchant, [MERCHANT.offScreenX, MERCHANT.y], MERCHANT.size);
+    // "Goal reached!" from the start; the merchant boat comes alongside the fishing boat, stays while the catch is
+    // sold (the net empties, the coins are shown), then turns around and sails away; the button appears after it
+    const ship = makeImage(IMAGES.merchant, [MERCHANT.offScreenX, MERCHANT.y], MERCHANT.size);
     show(ship);
     await glide(ship, [MERCHANT.offScreenX, MERCHANT.y], [MERCHANT.x, MERCHANT.y], CONFIG.merchantDuration);
     hide(gauge);
     drawNetGauge({ ...zone, option: null }, { net: 0 });
+    show(...result);
+    await wait(CONFIG.merchantStay);
+    ship.flipHoriz = true;
+    await glide(ship, [MERCHANT.x, MERCHANT.y], [MERCHANT.offScreenX, MERCHANT.y], CONFIG.merchantDuration);
+  } else {
+    bag.opacity = 0.4;
+    show(...result);
+    await wait(CONFIG.outcomeMinDuration);
   }
-  const bag = makeImage(IMAGES.bag, [-0.09, 0.1], [0.1, 0.18]);
-  bag.opacity = sold ? 1 : 0.4;
-  show(makePanel([0, 0.15], 0.8, 0.85, 0.35),
-    makeText(title, [0, 0.45], 0.1, 1.6, new util.Color(colour)),
-    makeText(sold ? 'Catch sold' : 'Nothing to sell', [0, 0.28], 0.065),
-    bag,
-    makeText(`+ ${coins}`, [0.06, 0.1], 0.1, 1.6, sold ? GAIN_COLOUR : new util.Color([0.4, 0.4, 0.4])),
-    makeText(`Total: ${state.coins} coins`, [0, -0.1], 0.065));
-
-  // the merchant boat turns around and sails away while the outcome is shown; the button appears when both are over
-  if (ship) ship.flipHoriz = true;
-  await Promise.all([wait(CONFIG.outcomeMinDuration),
-    ship && glide(ship, [MERCHANT.x, MERCHANT.y], [MERCHANT.offScreenX, MERCHANT.y], CONFIG.merchantDuration)]);
   const button = makeWhiteButton('Continue', [0, -0.5], 0.35);
   showButton(button);
   await waitForClick([button.rect]);
