@@ -469,14 +469,14 @@ async function quizQuestion(question, attempt) {
     win: psychoJS.window, units: 'norm', pos: [0.45, 0.45], width: 1.02, height: 1.02,
     fillColor: WHITE, lineColor: WHITE, lineWidth: 0,
   }), makeImage(question.image, [0.45, 0.45], [1, 1]),
-  makeText(question.question, [-0.56, 0.45], 0.065, 0.8));
+  makeText(question.question, [-0.55, 0.45], 0.08, 0.85));
   const boxes = question.answers.map((answer, k) => {
-    const pos = [0, -0.27 - 0.22 * k];
+    const pos = [0, -0.26 - 0.235 * k];
     const box = new visual.Rect({
-      win: psychoJS.window, units: 'norm', pos, width: 1.8, height: 0.18,
+      win: psychoJS.window, units: 'norm', pos, width: 1.84, height: 0.205,
       fillColor: new util.Color('black'), lineColor: WHITE, lineWidth: 2, opacity: 0.4,
     });
-    show(box, makeText(`${'ABC'[k]}. ${answer}`, pos, 0.055, 1.7));
+    show(box, makeText(`${'ABC'[k]}. ${answer}`, pos, 0.07, 1.76));
     return box;
   });
   const start = now();
