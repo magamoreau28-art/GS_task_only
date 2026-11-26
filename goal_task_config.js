@@ -30,8 +30,8 @@ export const CONFIG = {
       id: 'switch', image: 'images/quiz/quiz_1.jpg',
       question: 'Your net contains octopus.\nWhat happens if you now catch a fish?',
       answers: ['The fish is added to the octopus already in my net.',
-        'My net is emptied first: then only the fish is in my net.',
-        'Nothing happens: I cannot catch a fish on this day.'],
+        'My net is emptied first, then only the fish is in my net.',
+        "Nothing happens, I can't catch a fish on this day."],
       correct: 1,
     },
     {
@@ -45,8 +45,8 @@ export const CONFIG = {
     {
       id: 'spots', image: 'images/quiz/quiz_3.jpg',
       question: 'You will fish at several fishing spots.\nWhich statement is true?',
-      answers: ['Each spot has its own conditions: during the day, the amounts of creatures can change differently from one spot to another.',
-        'All spots are the same: the amounts of creatures change in the same way everywhere.',
+      answers: ['Each spot has its own conditions, during the day the amounts of creatures can change differently from one spot to another.',
+        'All spots are the same, the amounts of creatures change in the same way everywhere.',
         'The amounts of creatures never change during a day.'],
       correct: 0,
     },
